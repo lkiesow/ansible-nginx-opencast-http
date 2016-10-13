@@ -1,0 +1,72 @@
+---
+# vim: et:ts=2:sw=2:sts=2
+
+- hosts: server
+
+  tasks:
+    - name: install nginx
+      become: yes
+      package:
+        state=present
+        name=nginx
+
+    - name: remove unnecessary files
+      become: yes
+      file:
+        path=/etc/nginx/{{ item }}
+        state=absent
+      with_items:
+        - default.d
+        - fastcgi.conf
+        - fastcgi.conf.default
+        - fastcgi_params
+        - fastcgi_params.default
+        - koi-utf
+        - koi-win
+        - mime.types.default
+        - nginx.conf.default
+        - scgi_params
+        - scgi_params.default
+        - ssl
+        - ssl.conf
+        - uwsgi_params
+        - uwsgi_params.default
+        - win-utf
+
+    - name: configure nginx
+      become: yes
+      copy:
+        src: files/{{ item }}
+        dest: /etc/nginx/{{ item }}
+      with_items:
+        - mime.types
+        - nginx.conf
+      register: nginx_restart
+
+    - name: create conf.d
+      become: yes
+      file:
+        path: /etc/nginx/conf.d
+        state: directory
+        mode: 0755
+
+    - name: host configuration
+      become: yes
+      template:
+        src=host.conf
+        dest=/etc/nginx/conf.d/{{ inventory_hostname }}.conf
+      register: nginx_restart
+
+    - name: start nginx
+      become: yes
+      service:
+        name=nginx
+        enabled=yes
+        state=started
+
+    - name: restart nginx
+      become: yes
+      service:
+        name=nginx
+        state=restarted
+      when: nginx_restart|changed
